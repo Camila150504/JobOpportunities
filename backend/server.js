@@ -9,6 +9,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { connectMongoDB } from './src/config/mongo.js'
+import { createServer } from 'http'
+import { Server as SocketServer } from 'socket.io'
+import { disconnect } from 'process'
+import ChatMessage from './src/models/ChatMessage.js'
+import chatRoutes from './src/routes/chatRoutes.js'
+import adminRoutes from './src/routes/adminRoutes.js'
+
 
 const server = express()
 const PORT = process.env.PORT
@@ -30,7 +37,7 @@ try {
 }
 
 try{
-    connectMongoDB()
+    await connectMongoDB()
 }catch (err){
     console.log('Couldnt connect to Mongo', err)
 }
@@ -38,9 +45,52 @@ try{
 server.use('/api/users', guestRoutes)
 server.use('/api/employee', employeeRoutes)
 server.use('/api/employer', employerRoutes)
+server.use('/api/chat', chatRoutes)
+server.use('/api/admin', adminRoutes)
 
 server.get("/", (Req, Res) => {
     Res.json({message: "Backend is running"})
 })
 
-server.listen(PORT, ()=> console.log(`Server listening on PORT ${PORT}`))
+const httpServer = createServer(server)
+const io = new SocketServer(httpServer, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+    }
+})
+
+io.on('connection', socket => {
+    console.log('Socket connected:', socket.id);
+  
+    socket.on('join_room', ({ roomId }) => {
+      socket.join(roomId);
+      console.log(`🔑 ${socket.id} joined room ${roomId}`);
+    });
+  
+    socket.on('send_message', async data => {
+      try {
+        const { senderId, receiverId, text } = data;
+        const roomId = [senderId, receiverId].sort().join('_');
+  
+        const newMessage = await ChatMessage.create({ senderId, receiverId, text });
+        
+        io.to(roomId).emit('receive_message', {
+          _id: newMessage._id,
+          text: newMessage.text,
+          createdAt: newMessage.createdAt,
+          user: { _id: newMessage.senderId }
+        });
+      } catch (err) {
+        console.error('Error saving message:', err);
+      }
+    });
+  
+    socket.on('disconnect', () => {
+      console.log(' Socket disconnected:', socket.id);
+    });
+  });
+
+httpServer.listen(PORT, () => {
+    console.log(`Server + WebSocket running on port ${PORT}`)
+})

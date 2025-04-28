@@ -14,6 +14,21 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ message: 'Error fetching users', error });
   }
 };
+
+export const deleteUser = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    await user.destroy();
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ message: 'Could not delete user' });
+  }
+};
   
 export const registerUser = async (req, res) => {
   console.log("Register body: ", req.body)

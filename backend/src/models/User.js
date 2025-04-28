@@ -46,7 +46,7 @@ const User = conn.define('User', {
         },
     },
     role: {
-        type: DataTypes.ENUM('employee', 'employer'),
+        type: DataTypes.ENUM('employee', 'employer', 'admin'),
         allowNull: false,
         defaultValue: 'employee',
     },
