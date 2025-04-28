@@ -63,9 +63,10 @@ const io = new SocketServer(httpServer, {
 io.on('connection', socket => {
     console.log('Socket connected:', socket.id);
   
-    socket.on('join_room', ({ roomId }) => {
+    socket.on('join_room', ({ senderId, receiverId }) => {
+      const roomId = [senderId, receiverId].sort().join('_');
       socket.join(roomId);
-      console.log(`🔑 ${socket.id} joined room ${roomId}`);
+      console.log(` ${socket.id} joined room ${roomId}`);
     });
   
     socket.on('send_message', async data => {
@@ -81,6 +82,7 @@ io.on('connection', socket => {
           createdAt: newMessage.createdAt,
           user: { _id: newMessage.senderId }
         });
+        io.emit("access")
       } catch (err) {
         console.error('Error saving message:', err);
       }
